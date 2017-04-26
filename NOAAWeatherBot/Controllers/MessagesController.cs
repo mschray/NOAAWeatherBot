@@ -29,8 +29,8 @@ namespace NOAAWeatherBot
             if (activity.Type == ActivityTypes.Message)
             {
 
-                string appId = Utils.ReadSetting("AppId");
-                string appKey = Utils.ReadSetting("AppSecret");
+                string appId = Utils.ReadSetting("LUISAppId");
+                string appKey = Utils.ReadSetting("LUISAppSecret");
                 LUISHelper.Initialize(appId, appKey);
                 LuisResult luisResult = await LUISHelper.Predict(activity.Text);
 
