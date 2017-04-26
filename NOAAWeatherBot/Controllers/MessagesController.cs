@@ -8,6 +8,7 @@ using WeatherHelperLibrary;
 using System.Web;
 using Microsoft.Cognitive.LUIS;
 using System.Collections.Generic;
+using WeatherHelper;
 
 namespace NOAAWeatherBot
 {
@@ -20,12 +21,13 @@ namespace NOAAWeatherBot
         /// </summary>
         /// 
         
-        WeatherDataHelper weatherDataHelper = new WeatherDataHelper("60604", "http://w1.weather.gov/xml/current_obs/KMDW.xml");
-
+  
         // call LUIS
         //
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
         {
+            string city = "";
+
             if (activity.Type == ActivityTypes.Message)
             {
 
@@ -37,26 +39,79 @@ namespace NOAAWeatherBot
                 if (luisResult.Intents.Length > 0)
                 {
 
-                    //(luisResult.Intents>0)
-
-                    Intent intent = luisResult.TopScoringIntent;
-
-                    if (intent.Name.ToUpper() == "forcecast".ToUpper())
+                    if (luisResult.Entities.Count > 0)
                     {
-                        List<ForecastData> forecastData = await weatherDataHelper.GatherForecastData();
-                    }
-                    else if (intent.Name.ToUpper() == "temperature".ToUpper())
-                    {
-                        WeatherInfo weatherInfo = await weatherDataHelper.GatherWeatherData();
+                        if (luisResult.Entities.ContainsKey("CityName"))
+                        {
+                            var result = luisResult.Entities["CityName"];
+                            city = result[0].Value;
+                        }
                     }
                     else
                     {
+                        activity.Text = "Not sure what you asked me";
+                        await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
 
+                    }
+
+                    if (string.IsNullOrWhiteSpace(city))
+                    {
+                        activity.Text ="Could not understand what you asked try using forecast city name";
+                        await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                    }
+                    else
+                    {
+                        // default to Chicago
+                        WeatherDataHelper weatherDataHelper = new WeatherDataHelper("60604", "http://w1.weather.gov/xml/current_obs/KORD.xml");
+
+                        CityInfo cityInfo = CityHelper.FindCity(city);
+
+
+                        if (cityInfo != null)
+                        {
+                            weatherDataHelper = new WeatherDataHelper(cityInfo.ZipCode, $"http://w1.weather.gov/xml/current_obs/{cityInfo.AirportCode}.xml");
+
+                        }
+
+                        Intent intent = luisResult.TopScoringIntent;
+
+                        if (intent.Name.ToUpper() == "forecast".ToUpper())
+                        {
+
+                            List<ForecastData> forecastData = await weatherDataHelper.GatherForecastData();
+                            string message = $"{city} forecast";
+
+                            foreach (var item in forecastData)
+                            {
+                                message += $"{item.ForecastDate}-Chance of precipiation={item.ChanceOfPrecip}-High={item.HighTemp}-Low={item.LowTemp}\n";
+                            }
+
+                            activity.Text = message;
+                            await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                        }
+                        else if (intent.Name.ToUpper() == "temperature".ToUpper())
+                        {
+                            string message = $"Current conditions for {city} ";
+
+                            WeatherInfo weatherInfo = await weatherDataHelper.GatherWeatherData();
+
+                            message += $"Temperature={weatherInfo.Temperature}-the weather is {weatherInfo.WeatherDescription}";
+
+                            //IMessageActivity responseMessage = new Activity(message);
+                            activity.Text = message;
+                            await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                            return Request.CreateResponse(HttpStatusCode.OK);
+                        }
+                        else
+                        {
+                            activity.Text = "Could not understand please ask for temperature city name or forecast city name";
+                            await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+                        }
                     }
 
                 }
 
-                await Conversation.SendAsync(activity, () => new Dialogs.RootDialog());
+          
             }
             else
             {

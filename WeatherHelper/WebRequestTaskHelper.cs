@@ -22,6 +22,10 @@ namespace WeatherHelperLibrary
                 //webClient.DefaultRequestHeaders.Add("User-Agent", "WeatherManChicago/1.1 (http://www.microsoft.com/en-US/store/Apps/Weather-Man-Chicago/9WZDNCRDF8V6/; martin.schray@hotmail.com)");
                 webClient.DefaultRequestHeaders.Add("User-Agent", userAgent);
             }
+            else
+            {
+                webClient.DefaultRequestHeaders.Add("User-Agent", "WeatherManChicago/1.1 (http://www.microsoft.com/en-US/store/Apps/Weather-Man-Chicago/9WZDNCRDF8V6/; martin.schray@hotmail.com)");
+            }
 
             string str = await webClient.GetStringAsync(uri);
 
